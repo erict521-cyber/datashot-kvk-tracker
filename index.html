@@ -306,25 +306,33 @@
         row.tg ??
         null;
 
-      return {
-        ...row,
-        player_name: playerName,
-        player_key: row.player_key || normalizeKey(playerName),
-        snapshot_time_utc: iso,
-        snapshot_date_utc: iso.slice(0, 10),
-        rank_group: row.rank_group || row.member_group || row.group || row.Group || 'Unknown',
-        power: parsePower(row.power ?? row.Power ?? row.power_m ?? row['Power M']),
+      const parsedTruegold =
+  truegoldRaw === '' || truegoldRaw == null || Number.isNaN(Number(truegoldRaw))
+    ? null
+    : Number(truegoldRaw);
 
-        town_center_level:
-          townCenterRaw === '' || townCenterRaw == null || Number.isNaN(Number(townCenterRaw))
-            ? null
-            : Number(townCenterRaw),
+let parsedTownCenter =
+  townCenterRaw === '' || townCenterRaw == null || Number.isNaN(Number(townCenterRaw))
+    ? null
+    : Number(townCenterRaw);
 
-        truegold_level:
-          truegoldRaw === '' || truegoldRaw == null || Number.isNaN(Number(truegoldRaw))
-            ? null
-            : Number(truegoldRaw),
-      };
+// Truegold only unlocks after standard TC30 progression.
+// If a player has a TG badge, force Town Center to TC30 for readiness calculations.
+if (parsedTruegold != null && parsedTruegold >= 1) {
+  parsedTownCenter = 30;
+}
+
+return {
+  ...row,
+  player_name: playerName,
+  player_key: row.player_key || normalizeKey(playerName),
+  snapshot_time_utc: iso,
+  snapshot_date_utc: iso.slice(0, 10),
+  rank_group: row.rank_group || row.member_group || row.group || row.Group || 'Unknown',
+  power: parsePower(row.power ?? row.Power ?? row.power_m ?? row['Power M']),
+  town_center_level: parsedTownCenter,
+  truegold_level: parsedTruegold,
+};
     }
 
     function buildStats(data) {
