@@ -277,6 +277,23 @@
       overflow-x: auto;
     }
 
+    .scroll-panel {
+      max-height: 620px;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+    }
+
+    .scroll-panel .table-wrap {
+      overflow: visible;
+    }
+
+    .scroll-panel th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -630,12 +647,17 @@
       const timeline = buildTimeline(snapshots, prepStartDateUtc);
       const hasGrowth = timeline.length > 1;
 
-      const growthLeaders = players
+      const eligibleGrowthPlayers = players
         .filter((p) => p.growthEligible)
-        .sort((a, b) => b.gain - a.gain || b.pctGain - a.pctGain)
-        .slice(0, 20);
+        .sort((a, b) => b.gain - a.gain || b.pctGain - a.pctGain);
 
-      const highestGrowerOverall = growthLeaders[0] || null;
+      const highestGrowerOverall = eligibleGrowthPlayers[0] || null;
+
+      const allPlayerGrowth = [...players]
+        .sort((a, b) => {
+          if (a.growthEligible !== b.growthEligible) return a.growthEligible ? -1 : 1;
+          return b.gain - a.gain || b.pctGain - a.pctGain || b.currentPower - a.currentPower;
+        });
 
       const watchlist = players
         .filter((p) => {
@@ -657,7 +679,8 @@
         groupStats,
         townCenterBuckets,
         truegoldBuckets,
-        growthLeaders,
+        eligibleGrowthPlayers,
+        growthLeaders: allPlayerGrowth,
         highestGrowerOverall,
         topPower: players.slice(0, 20),
         watchlist,
@@ -880,16 +903,19 @@
         const pctPrefix = p.pctGain >= 0 ? '+' : '';
         const tcText = p.townCenter == null ? '—' : 'TC' + p.townCenter;
         const tgText = p.truegold == null ? '—' : 'TG-' + p.truegold;
+        const startText = p.growthEligible ? formatPower(p.startingPower) : 'New';
+        const gainText = p.growthEligible ? gainPrefix + formatPower(p.gain) : '—';
+        const pctText = p.growthEligible ? pctPrefix + p.pctGain.toFixed(1) + '%' : '—';
 
         return (
           '<tr>' +
             '<td>' + (i + 1) + '</td>' +
             '<td>' + escapeHtml(p.name) + '</td>' +
             '<td>' + escapeHtml(p.group) + '</td>' +
-            '<td>' + formatPower(p.startingPower) + '</td>' +
+            '<td>' + startText + '</td>' +
             '<td>' + formatPower(p.currentPower) + '</td>' +
-            '<td class="' + gainClass + '">' + gainPrefix + formatPower(p.gain) + '</td>' +
-            '<td>' + pctPrefix + p.pctGain.toFixed(1) + '%</td>' +
+            '<td class="' + gainClass + '">' + gainText + '</td>' +
+            '<td>' + pctText + '</td>' +
             '<td>' + tcText + '</td>' +
             '<td>' + tgText + '</td>' +
           '</tr>'
@@ -1053,9 +1079,11 @@
         '</section>' +
 
         '<section class="panel">' +
-          '<h2>' + (stats.hasGrowth ? 'Growth Leaders' : 'Top Power Leaderboard') + '</h2>' +
-          '<p class="section-note">Overall gain from the start of prep. New players added after prep start are excluded from growth ranking.</p>' +
-          mainTable +
+          '<h2>' + (stats.hasGrowth ? 'All Player Growth' : 'Top Power Leaderboard') + '</h2>' +
+          '<p class="section-note">All members in one scrollable table. Growth is calculated from the start of prep; new players display as New and do not count as growth.</p>' +
+          '<div class="scroll-panel">' +
+            mainTable +
+          '</div>' +
         '</section>' +
 
         '<section class="two-col">' +
