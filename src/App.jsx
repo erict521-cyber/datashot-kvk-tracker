@@ -17,14 +17,18 @@ export default function App() {
           setData(JSON.parse(saved));
           return;
         }
-        const dataUrl = `${import.meta.env.BASE_URL}data/kvk-snapshots.json`;
-        const res = await fetch(dataUrl, { cache: 'no-store' });
-        if (!res.ok) throw new Error(`Could not load ${dataUrl} (${res.status})`);
+
+        const res = await fetch('/data/kvk-snapshots.json', { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error(`Could not load /data/kvk-snapshots.json (${res.status})`);
+        }
+
         setData(await res.json());
       } catch (err) {
         setLoadError(err.message || 'Unable to load tracker data.');
       }
     }
+
     load();
   }, []);
 
@@ -35,6 +39,653 @@ export default function App() {
   const stats = useMemo(() => (data ? buildStats(data) : null), [data]);
 
   function saveWorkingData(next) {
+    setData(next);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  }
+
+  function resetWorkingData() {
+    localStorage.removeItem(STORAGE_KEY);
+    window.location.reload();
+  }
+
+  if (loadError) {
+    return (
+      <div className="app">
+        <section className="panel">
+          <h2>Datashot KvK Tracker</h2>
+          <p className="error">{loadError}</p>
+        </section>
+      </div>
+    );
+  }
+
+  if (!data || !stats) {
+    return (
+      <div className="app">
+        <section className="panel">
+          <p>Loading tracker…</p>
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <Shell
+      tab={tab}
+      setTab={setTab}
+      updatedAt={stats.latestTimeUtc}
+    >
+      {tab === 'dashboard' ? (
+        <Dashboard data={data} stats={stats} />
+      ) : (
+        <Admin
+          data={data}
+          stats={stats}
+          onSave={saveWorkingData}
+          onReset={resetWorkingData}
+        />
+      )}
+    </Shell>
+  );
+}
+
+function Shell({ children, tab, setTab, updatedAt }) {
+  return (
+    <div className="app">
+      <header className="hero">
+        <div>
+          <div className="eyebrow">Datashot</div>
+          <h1>KvK Prep Growth Tracker</h1>
+          <p className="muted">
+            Alliance power, Town Center, and Truegold readiness for KvK preparation.
+          </p>
+          {updatedAt && (
+            <p className="muted hero-update">
+              Latest update: {updatedAt} UTC
+            </p>
+          )}
+        </div>
+
+        <div className="tabs">
+          <button
+            className={tab === 'dashboard' ? 'active' : ''}
+            onClick={() => setTab('dashboard')}
+          >
+            Dashboard
+          </button>
+          <button
+            className={tab === 'admin' ? 'active' : ''}
+            onClick={() => setTab('admin')}
+          >
+            Admin
+          </button>
+        </div>
+      </header>
+
+      {children}
+    </div>
+  );
+}
+
+function Dashboard({ stats }) {
+  const hasGrowth = stats.timeline.length > 1;
+
+  return (
+    <>
+      {!hasGrowth && (
+        <section className="panel callout">
+          <h2>Baseline Captured</h2>
+          <p>
+            This is the starting snapshot. After the next update, the dashboard will show power gain,
+            percentage gain, and low-growth tracking.
+          </p>
+        </section>
+      )}
+
+      <div className="grid cards">
+        <StatCard label="Members" value={stats.players.length} />
+        <StatCard label="Total Power" value={formatPower(stats.totalPower)} />
+        <StatCard label="Average Power" value={formatPower(stats.avgPower)} />
+        <StatCard label="TC30 Members" value={stats.summary.tc30Members} />
+        <StatCard label="TC29+ Members" value={stats.summary.tc29PlusMembers} />
+        <StatCard label="Truegold Members" value={stats.summary.truegoldMembers} />
+      </div>
+
+      <AllianceSnapshot stats={stats} />
+
+      <div className="two-col">
+        <Panel title="Power by Rank Group">
+          <p className="muted">
+            Total visible power contribution by alliance rank group.
+          </p>
+          <MetricBarList
+            rows={stats.groupStats.map((row) => ({
+              label: row.group,
+              value: row.totalPower,
+              display: formatPower(row.totalPower),
+              sub: `${row.count} members`,
+            }))}
+          />
+        </Panel>
+
+        <Panel title="Town Center Readiness">
+          <p className="muted">
+            Town Center level is the core progression level shown beside the tower icon.
+          </p>
+          <MetricBarList
+            rows={stats.townCenterStats.map((row) => ({
+              label: row.label,
+              value: row.count,
+              display: String(row.count),
+            }))}
+          />
+        </Panel>
+      </div>
+
+      <div className="two-col">
+        <Panel title="Truegold Advancement">
+          <p className="muted">
+            Gold numbered badges indicate Truegold tier: TG-1, TG-2, TG-3, and above.
+          </p>
+          <MetricBarList
+            rows={stats.truegoldStats.map((row) => ({
+              label: row.label,
+              value: row.count,
+              display: String(row.count),
+            }))}
+          />
+        </Panel>
+
+        <Panel title="Growth Leaders">
+          <p className="muted">
+            Overall gain from the start of prep. New players added after prep start are excluded.
+          </p>
+          <PlayerTable players={stats.growthLeaders.slice(0, 15)} showGrowth />
+        </Panel>
+      </div>
+
+      <Panel title="Full Member Table">
+        <PlayerTable players={stats.players} showGrowth={hasGrowth} />
+      </Panel>
+
+      <Panel title="Watchlist">
+        <Watchlist rows={stats.watchlist} snapshotCount={stats.timeline.length} />
+      </Panel>
+    </>
+  );
+}
+
+function AllianceSnapshot({ stats }) {
+  const [expanded, setExpanded] = useState(false);
+  const highestGrower = stats.highestGrowerOverall;
+
+  return (
+    <>
+      <Panel title="Alliance Snapshot">
+        <div className="snapshot-grid">
+          <div className="spotlight-card">
+            <div className="spotlight-label">Highest grower overall</div>
+
+            {highestGrower ? (
+              <>
+                <div className="spotlight-name">{highestGrower.name}</div>
+                <div className="spotlight-value">{formatSignedPower(highestGrower.gain)}</div>
+                <div className="spotlight-sub">
+                  {formatPct(highestGrower.pctGain)} from prep start
+                </div>
+                <div className="spotlight-meta">
+                  Current power: {formatPower(highestGrower.currentPower)} • {highestGrower.rankGroup} •{' '}
+                  {formatTownCenter(highestGrower.townCenterLevel)}
+                  {highestGrower.truegoldLevel ? ` • TG-${highestGrower.truegoldLevel}` : ''}
+                </div>
+              </>
+            ) : (
+              <p className="muted">
+                Need at least two prep snapshots to calculate the highest overall grower.
+              </p>
+            )}
+          </div>
+
+          <button className="chart-card" onClick={() => setExpanded(true)}>
+            <div className="chart-head">
+              <div>
+                <div className="chart-title">Alliance total growth</div>
+                <div className="chart-subtitle">
+                  From prep start • UTC timeline • Prep day {stats.currentPrepDay} of {stats.prepDays}
+                </div>
+              </div>
+              <span className="chart-zoom">Tap to enlarge</span>
+            </div>
+
+            <LineChart
+              points={stats.timeline.map((point) => ({
+                xLabel: formatAxisLabel(point.timeUtc),
+                title: point.timeUtc,
+                value: point.totalPower,
+              }))}
+              height={220}
+              compact
+            />
+
+            <div className="chart-footer">
+              <span>Start: {formatPower(stats.timeline[0]?.totalPower || 0)}</span>
+              <span>Current: {formatPower(stats.timeline.at(-1)?.totalPower || 0)}</span>
+              <span className="good">
+                {formatSignedPower((stats.timeline.at(-1)?.totalPower || 0) - (stats.timeline[0]?.totalPower || 0))}
+              </span>
+            </div>
+          </button>
+        </div>
+      </Panel>
+
+      {expanded && (
+        <ChartModal title="Alliance Total Growth Timeline" onClose={() => setExpanded(false)}>
+          <p className="muted modal-copy">
+            Timeline uses exact snapshot timestamps in UTC. Prep start is Day 1 on 2026-05-18 UTC.
+          </p>
+
+          <LineChart
+            points={stats.timeline.map((point) => ({
+              xLabel: formatAxisLabel(point.timeUtc, true),
+              title: point.timeUtc,
+              value: point.totalPower,
+            }))}
+            height={360}
+          />
+
+          <div className="chart-footer modal-footer">
+            <span>Start: {formatPower(stats.timeline[0]?.totalPower || 0)}</span>
+            <span>Current: {formatPower(stats.timeline.at(-1)?.totalPower || 0)}</span>
+            <span className="good">
+              {formatSignedPower((stats.timeline.at(-1)?.totalPower || 0) - (stats.timeline[0]?.totalPower || 0))}
+            </span>
+          </div>
+        </ChartModal>
+      )}
+    </>
+  );
+}
+
+function Admin({ data, stats, onSave, onReset }) {
+  const [raw, setRaw] = useState('');
+  const [snapshotTime, setSnapshotTime] = useState(new Date().toISOString().slice(0, 16));
+  const [message, setMessage] = useState('');
+
+  function importedRowsFromRaw() {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('{')) {
+      const parsed = JSON.parse(trimmed);
+      return parsed.snapshots || [];
+    }
+    if (trimmed.startsWith('[')) {
+      return JSON.parse(trimmed);
+    }
+    return parseCsv(trimmed);
+  }
+
+  function previewImport() {
+    try {
+      const rows = importedRowsFromRaw();
+      setMessage(`Parsed ${rows.length} rows. Snapshot time will be stored as ${toUtcIso(snapshotTime)}.`);
+    } catch (err) {
+      setMessage(`Import error: ${err.message}`);
+    }
+  }
+
+  function mergeImport() {
+    try {
+      const rows = importedRowsFromRaw();
+      const next = mergeData(data, rows, toUtcIso(snapshotTime));
+      onSave(next);
+      setMessage(`Merged ${rows.length} rows. Working data now has ${next.snapshots.length} snapshots.`);
+    } catch (err) {
+      setMessage(`Import error: ${err.message}`);
+    }
+  }
+
+  function downloadJson() {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'kvk-snapshots.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleFile(file) {
+    if (!file) return;
+    setRaw(await file.text());
+  }
+
+  return (
+    <section className="panel">
+      <h2>Manual Update Workflow</h2>
+      <p className="muted">
+        Paste CSV/JSON from the parsed screenshots, merge it into browser working data, then download
+        <code> kvk-snapshots.json </code>
+        and commit it to
+        <code> public/data/kvk-snapshots.json</code>.
+      </p>
+
+      <div className="admin-grid">
+        <label>
+          Snapshot time, entered in your browser then converted to UTC
+          <input
+            type="datetime-local"
+            value={snapshotTime}
+            onChange={(e) => setSnapshotTime(e.target.value)}
+          />
+        </label>
+
+        <label>
+          Upload CSV or JSON
+          <input
+            type="file"
+            accept=".csv,.json,text/csv,application/json"
+            onChange={(e) => handleFile(e.target.files?.[0])}
+          />
+        </label>
+      </div>
+
+      <label>
+        Paste CSV or JSON here…
+        <textarea
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          placeholder="Paste CSV or JSON here…"
+        />
+      </label>
+
+      <div className="actions">
+        <button onClick={previewImport}>Preview parse</button>
+        <button onClick={mergeImport}>Merge into working data</button>
+        <button onClick={downloadJson}>Download kvk-snapshots.json</button>
+        <button className="danger" onClick={onReset}>Reset browser working copy</button>
+      </div>
+
+      {message && <p className="message">{message}</p>}
+
+      <div className="mini-stats">
+        <StatCard label="Working members" value={stats.players.length} />
+        <StatCard label="Working snapshots" value={data.snapshots?.length || 0} />
+        <StatCard
+          label="UTC latest"
+          value={utcDateLabel(stats.latestTimeUtc)}
+          sub={stats.latestTimeUtc || '—'}
+        />
+      </div>
+    </section>
+  );
+}
+
+function StatCard({ label, value, sub }) {
+  return (
+    <div className="stat">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {sub && <small>{sub}</small>}
+    </div>
+  );
+}
+
+function Panel({ title, children }) {
+  return (
+    <section className="panel">
+      <h2>{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function MetricBarList({ rows }) {
+  const max = Math.max(...rows.map((row) => Number(row.value || 0)), 1);
+
+  return (
+    <div className="metric-list">
+      {rows.map((row) => {
+        const pct = Math.max(0, Math.min(100, (Number(row.value || 0) / max) * 100));
+        return (
+          <div className="metric-row" key={row.label}>
+            <div className="metric-head">
+              <div>
+                <div className="metric-label">{row.label}</div>
+                {row.sub && <div className="metric-sub">{row.sub}</div>}
+              </div>
+              <strong>{row.display}</strong>
+            </div>
+            <div className="bar-track">
+              <div className="bar-fill" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PlayerTable({ players, showGrowth }) {
+  if (!players.length) {
+    return <p className="muted">No rows yet.</p>;
+  }
+
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Player</th>
+            <th>Group</th>
+            <th>TC</th>
+            <th>TG</th>
+            <th>Power</th>
+            {showGrowth && <><th>Gain</th><th>%</th></>}
+          </tr>
+        </thead>
+        <tbody>
+          {players.map((p, i) => (
+            <tr key={p.key}>
+              <td>{i + 1}</td>
+              <td>{p.name}</td>
+              <td>{p.rankGroup}</td>
+              <td>{formatTownCenterShort(p.townCenterLevel)}</td>
+              <td>{formatTruegoldShort(p.truegoldLevel)}</td>
+              <td>{formatPower(p.currentPower)}</td>
+              {showGrowth && (
+                <>
+                  <td className={p.gain >= 0 ? 'good' : 'bad'}>{formatSignedPower(p.gain)}</td>
+                  <td>{formatPct(p.pctGain)}</td>
+                </>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Watchlist({ rows, snapshotCount }) {
+  if (!rows.length) {
+    return <p className="muted">No watchlist items yet.</p>;
+  }
+
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Reason</th>
+            <th>Power</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((p) => {
+            const reasons = [];
+
+            if (p.snapshots.length < snapshotCount) {
+              reasons.push('Missing latest snapshot');
+            }
+            if (p.growthEligible && snapshotCount > 1 && p.gain <= 0) {
+              reasons.push('No growth');
+            }
+            if (!p.townCenterLevel) {
+              reasons.push('Unknown town center');
+            } else if (p.townCenterLevel < 28) {
+              reasons.push(`TC${p.townCenterLevel}`);
+            }
+
+            return (
+              <tr key={p.key}>
+                <td>{p.name}</td>
+                <td>{reasons.join(', ') || 'Review'}</td>
+                <td>{formatPower(p.currentPower)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ChartModal({ title, children, onClose }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <h3>{title}</h3>
+          <button className="close-btn" onClick={onClose}>Close</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function LineChart({ points, height = 240, compact = false }) {
+  if (!points.length) {
+    return <div className="empty-chart">No timeline data available yet.</div>;
+  }
+
+  const width = 860;
+  const padTop = 20;
+  const padRight = 18;
+  const padBottom = compact ? 34 : 52;
+  const padLeft = 54;
+  const plotWidth = width - padLeft - padRight;
+  const plotHeight = height - padTop - padBottom;
+
+  const values = points.map((p) => Number(p.value || 0));
+  const minValueRaw = Math.min(...values);
+  const maxValueRaw = Math.max(...values);
+  const range = maxValueRaw - minValueRaw || Math.max(1, maxValueRaw * 0.05 || 1);
+  const minValue = minValueRaw - range * 0.08;
+  const maxValue = maxValueRaw + range * 0.08;
+
+  const positions = points.map((point, index) => {
+    const x = points.length === 1
+      ? padLeft + plotWidth / 2
+      : padLeft + (index / (points.length - 1)) * plotWidth;
+
+    const y = padTop + ((maxValue - point.value) / (maxValue - minValue || 1)) * plotHeight;
+
+    return { ...point, x, y };
+  });
+
+  const path = positions.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const tickCount = 4;
+  const yTicks = Array.from({ length: tickCount + 1 }, (_, i) => {
+    const value = maxValue - ((maxValue - minValue) * i) / tickCount;
+    const y = padTop + (plotHeight * i) / tickCount;
+    return { value, y };
+  });
+
+  const labelIndexes = compact
+    ? uniqueIndexes([0, Math.floor((points.length - 1) / 2), points.length - 1])
+    : uniqueIndexes([
+        0,
+        Math.floor((points.length - 1) * 0.25),
+        Math.floor((points.length - 1) * 0.5),
+        Math.floor((points.length - 1) * 0.75),
+        points.length - 1,
+      ]);
+
+  return (
+    <svg
+      className="line-chart"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="Alliance total power growth timeline"
+    >
+      {yTicks.map((tick, i) => (
+        <g key={i}>
+          <line
+            x1={padLeft}
+            y1={tick.y}
+            x2={width - padRight}
+            y2={tick.y}
+            className="chart-grid"
+          />
+          <text x={12} y={tick.y + 4} className="chart-axis">
+            {formatPower(tick.value)}
+          </text>
+        </g>
+      ))}
+
+      <path d={path} fill="none" className="chart-line" />
+
+      {positions.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r={4} className="chart-point" />
+        </g>
+      ))}
+
+      {labelIndexes.map((index) => {
+        const p = positions[index];
+        return (
+          <text key={index} x={p.x} y={height - 10} textAnchor="middle" className="chart-axis">
+            {p.xLabel}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+function uniqueIndexes(values) {
+  return [...new Set(values.filter((v) => Number.isInteger(v) && v >= 0))];
+}
+
+function formatAxisLabel(value, detailed = false) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const hour = String(d.getUTCHours()).padStart(2, '0');
+  const minute = String(d.getUTCMinutes()).padStart(2, '0');
+
+  if (detailed) return `${month}/${day} ${hour}:${minute}Z`;
+  return `${month}/${day}`;
+}
+
+function formatTownCenter(level) {
+  return level ? `TC${level}` : 'TC unknown';
+}
+
+function formatTownCenterShort(level) {
+  return level ? `TC${level}` : '—';
+}
+
+function formatTruegoldShort(level) {
+  return level ? `TG-${level}` : '—';
+      }  function saveWorkingData(next) {
     setData(next);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   }
