@@ -44,7 +44,8 @@
     }
 
     h1,
-    h2 {
+    h2,
+    h3 {
       margin: 8px 0;
     }
 
@@ -127,8 +128,94 @@
       padding: 2px 5px;
       border-radius: 5px;
     }
+
+    .bar-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .bar-row {
+      display: grid;
+      gap: 6px;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 14px;
+    }
+
+    .bar-track {
+      height: 14px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2563eb, #22c55e);
+      border-radius: 999px;
+    }
+
+    .section-note {
+      margin-top: -4px;
+      margin-bottom: 14px;
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #fef3c7;
+      color: #92400e;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .highlight-card {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+
+    .highlight-card strong {
+      font-size: 20px;
+    }
+
+    @media (max-width: 600px) {
+      .app {
+        padding: 12px;
+      }
+
+      .hero,
+      .panel,
+      .stat {
+        border-radius: 12px;
+      }
+
+      .stat strong {
+        font-size: 20px;
+      }
+
+      table {
+        font-size: 13px;
+      }
+
+      th,
+      td {
+        padding: 8px;
+      }
+    }
   </style>
 </head>
+
 <body>
   <div id="app" class="app">
     <section class="panel">
@@ -141,10 +228,12 @@
 
     function formatPower(value) {
       const n = Number(value || 0);
+
       if (!Number.isFinite(n)) return '—';
       if (Math.abs(n) >= 1000000000) return (n / 1000000000).toFixed(2) + 'B';
       if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(n >= 100000000 ? 0 : 1) + 'M';
       if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + 'K';
+
       return String(n);
     }
 
@@ -175,6 +264,7 @@
 
       const text = String(value).trim().replace(/,/g, '');
       const match = text.match(/^(-?\d+(?:\.\d+)?)\s*([kmb])?$/i);
+
       if (!match) return Number(text) || 0;
 
       const n = Number(match[1]);
@@ -189,6 +279,7 @@
 
     function normalizeSnapshot(row) {
       const playerName = row.player_name || row.name || row.Player || row.player || '';
+
       const time =
         row.snapshot_time_utc ||
         row.snapshot_time ||
@@ -199,11 +290,20 @@
       const d = new Date(time);
       const iso = Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
 
-      const furnaceRaw =
+      const townCenterRaw =
+        row.town_center_level ??
+        row.tc_level ??
         row.furnace_level ??
         row.furnace ??
         row.level ??
         row.Level ??
+        null;
+
+      const truegoldRaw =
+        row.truegold_level ??
+        row.tg_level ??
+        row.truegold ??
+        row.tg ??
         null;
 
       return {
@@ -214,10 +314,16 @@
         snapshot_date_utc: iso.slice(0, 10),
         rank_group: row.rank_group || row.member_group || row.group || row.Group || 'Unknown',
         power: parsePower(row.power ?? row.Power ?? row.power_m ?? row['Power M']),
-        furnace_level:
-          furnaceRaw === '' || furnaceRaw == null || Number.isNaN(Number(furnaceRaw))
+
+        town_center_level:
+          townCenterRaw === '' || townCenterRaw == null || Number.isNaN(Number(townCenterRaw))
             ? null
-            : Number(furnaceRaw),
+            : Number(townCenterRaw),
+
+        truegold_level:
+          truegoldRaw === '' || truegoldRaw == null || Number.isNaN(Number(truegoldRaw))
+            ? null
+            : Number(truegoldRaw),
       };
     }
 
@@ -227,7 +333,11 @@
 
       for (const snap of snapshots) {
         if (!snap.player_key) continue;
-        if (!byPlayer.has(snap.player_key)) byPlayer.set(snap.player_key, []);
+
+        if (!byPlayer.has(snap.player_key)) {
+          byPlayer.set(snap.player_key, []);
+        }
+
         byPlayer.get(snap.player_key).push(snap);
       }
 
@@ -242,7 +352,8 @@
           key,
           name: latest.player_name || first.player_name || key,
           group: latest.rank_group || 'Unknown',
-          furnace: latest.furnace_level,
+          townCenter: latest.town_center_level,
+          truegold: latest.truegold_level,
           currentPower: Number(latest.power || 0),
           startingPower: Number(first.power || 0),
           gain,
@@ -273,14 +384,29 @@
         })
         .filter((g) => g.count > 0);
 
-      const furnaceBuckets = [
-        { label: 'Lv. 30', test: (n) => n === 30 },
-        { label: 'Lv. 29', test: (n) => n === 29 },
-        { label: 'Lv. 28', test: (n) => n === 28 },
-        { label: 'Lv. 27 and below', test: (n) => n != null && n <= 27 },
+      const townCenterBuckets = [
+        { label: 'TC30', test: (n) => n === 30 },
+        { label: 'TC29', test: (n) => n === 29 },
+        { label: 'TC28', test: (n) => n === 28 },
+        { label: 'TC27 and below', test: (n) => n != null && n <= 27 },
         { label: 'Unknown', test: (n) => n == null },
       ].map((bucket) => {
-        const members = players.filter((p) => bucket.test(p.furnace));
+        const members = players.filter((p) => bucket.test(p.townCenter));
+
+        return {
+          label: bucket.label,
+          count: members.length,
+          totalPower: members.reduce((sum, p) => sum + p.currentPower, 0),
+        };
+      });
+
+      const truegoldBuckets = [
+        { label: 'TG-3+', test: (n) => n != null && n >= 3 },
+        { label: 'TG-2', test: (n) => n === 2 },
+        { label: 'TG-1', test: (n) => n === 1 },
+        { label: 'No TG badge', test: (n) => n == null },
+      ].map((bucket) => {
+        const members = players.filter((p) => bucket.test(p.truegold));
 
         return {
           label: bucket.label,
@@ -295,9 +421,17 @@
         .sort((a, b) => b.gain - a.gain)
         .slice(0, 20);
 
+      const topPower = players.slice(0, 20);
+
       const watchlist = players
-        .filter((p) => !p.furnace || p.furnace < 28 || (hasGrowth && p.gain <= 0))
+        .filter((p) => !p.townCenter || p.townCenter < 28 || (hasGrowth && p.gain <= 0))
         .slice(0, 25);
+
+      const topPlayer = players[0] || null;
+
+      const tc30Count = players.filter((p) => p.townCenter === 30).length;
+      const tc29PlusCount = players.filter((p) => p.townCenter != null && p.townCenter >= 29).length;
+      const truegoldCount = players.filter((p) => p.truegold != null && p.truegold >= 1).length;
 
       return {
         snapshots,
@@ -307,40 +441,100 @@
         latestTimeUtc,
         dates,
         groupStats,
-        furnaceBuckets,
+        townCenterBuckets,
+        truegoldBuckets,
         growthLeaders,
-        topPower: players.slice(0, 20),
+        topPower,
         watchlist,
         hasGrowth,
+        topPlayer,
+        tc30Count,
+        tc29PlusCount,
+        truegoldCount,
       };
     }
 
     function makeTable(headers, rows) {
-  const bodyRows = Array.isArray(rows) ? rows.join('') : String(rows || '');
+      const bodyRows = Array.isArray(rows) ? rows.join('') : String(rows || '');
 
-  return (
-    '<div class="table-wrap">' +
-      '<table>' +
-        '<thead><tr>' +
-          headers.map((h) => '<th>' + escapeHtml(h) + '</th>').join('') +
-        '</tr></thead>' +
-        '<tbody>' + bodyRows + '</tbody>' +
-      '</table>' +
-    '</div>'
-  );
-}
+      return (
+        '<div class="table-wrap">' +
+          '<table>' +
+            '<thead><tr>' +
+              headers.map((h) => '<th>' + escapeHtml(h) + '</th>').join('') +
+            '</tr></thead>' +
+            '<tbody>' + bodyRows + '</tbody>' +
+          '</table>' +
+        '</div>'
+      );
+    }
+
+    function makeBarChart(items, valueKey, labelKey) {
+      const max = Math.max(...items.map((item) => Number(item[valueKey] || 0)), 1);
+
+      return (
+        '<div class="bar-list">' +
+          items.map((item) => {
+            const value = Number(item[valueKey] || 0);
+            const pct = value === 0 ? 0 : Math.max(2, Math.round((value / max) * 100));
+
+            return (
+              '<div class="bar-row">' +
+                '<div class="bar-label">' +
+                  '<span>' + escapeHtml(item[labelKey]) + '</span>' +
+                  '<strong>' + value + '</strong>' +
+                '</div>' +
+                '<div class="bar-track">' +
+                  '<div class="bar-fill" style="width:' + pct + '%"></div>' +
+                '</div>' +
+              '</div>'
+            );
+          }).join('') +
+        '</div>'
+      );
+    }
+
+    function makePowerBarChart(items, valueKey, labelKey) {
+      const max = Math.max(...items.map((item) => Number(item[valueKey] || 0)), 1);
+
+      return (
+        '<div class="bar-list">' +
+          items.map((item) => {
+            const value = Number(item[valueKey] || 0);
+            const pct = value === 0 ? 0 : Math.max(2, Math.round((value / max) * 100));
+
+            return (
+              '<div class="bar-row">' +
+                '<div class="bar-label">' +
+                  '<span>' + escapeHtml(item[labelKey]) + '</span>' +
+                  '<strong>' + formatPower(value) + '</strong>' +
+                '</div>' +
+                '<div class="bar-track">' +
+                  '<div class="bar-fill" style="width:' + pct + '%"></div>' +
+                '</div>' +
+              '</div>'
+            );
+          }).join('') +
+        '</div>'
+      );
+    }
 
     function renderDashboard(data) {
       const stats = buildStats(data);
       const app = document.getElementById('app');
 
       const topPowerRows = stats.topPower.map((p, i) => {
+        const tcText = p.townCenter == null ? '—' : 'TC' + p.townCenter;
+        const tgText = p.truegold == null ? '—' : 'TG-' + p.truegold;
+
         return (
           '<tr>' +
             '<td>' + (i + 1) + '</td>' +
             '<td>' + escapeHtml(p.name) + '</td>' +
             '<td>' + escapeHtml(p.group) + '</td>' +
             '<td>' + formatPower(p.currentPower) + '</td>' +
+            '<td>' + tcText + '</td>' +
+            '<td>' + tgText + '</td>' +
           '</tr>'
         );
       }).join('');
@@ -349,6 +543,8 @@
         const gainClass = p.gain >= 0 ? 'good' : 'bad';
         const gainPrefix = p.gain >= 0 ? '+' : '';
         const pctPrefix = p.pctGain >= 0 ? '+' : '';
+        const tcText = p.townCenter == null ? '—' : 'TC' + p.townCenter;
+        const tgText = p.truegold == null ? '—' : 'TG-' + p.truegold;
 
         return (
           '<tr>' +
@@ -359,6 +555,8 @@
             '<td>' + formatPower(p.currentPower) + '</td>' +
             '<td class="' + gainClass + '">' + gainPrefix + formatPower(p.gain) + '</td>' +
             '<td>' + pctPrefix + p.pctGain.toFixed(1) + '%</td>' +
+            '<td>' + tcText + '</td>' +
+            '<td>' + tgText + '</td>' +
           '</tr>'
         );
       }).join('');
@@ -374,7 +572,17 @@
         );
       }).join('');
 
-      const furnaceRows = stats.furnaceBuckets.map((f) => {
+      const townCenterRows = stats.townCenterBuckets.map((f) => {
+        return (
+          '<tr>' +
+            '<td>' + escapeHtml(f.label) + '</td>' +
+            '<td>' + f.count + '</td>' +
+            '<td>' + formatPower(f.totalPower) + '</td>' +
+          '</tr>'
+        );
+      }).join('');
+
+      const truegoldRows = stats.truegoldBuckets.map((f) => {
         return (
           '<tr>' +
             '<td>' + escapeHtml(f.label) + '</td>' +
@@ -387,8 +595,8 @@
       const watchRows = stats.watchlist.map((p) => {
         const reasons = [];
 
-        if (!p.furnace) reasons.push('Unknown furnace');
-        else if (p.furnace < 28) reasons.push('Furnace ' + p.furnace);
+        if (!p.townCenter) reasons.push('Unknown Town Center');
+        else if (p.townCenter < 28) reasons.push('TC' + p.townCenter);
 
         if (stats.hasGrowth && p.gain <= 0) reasons.push('No growth');
 
@@ -403,23 +611,31 @@
       }).join('');
 
       const mainTable = stats.hasGrowth
-        ? makeTable(['#', 'Player', 'Group', 'Start', 'Current', 'Gain', '%'], growthRows)
-        : makeTable(['#', 'Player', 'Group', 'Power'], topPowerRows);
+        ? makeTable(['#', 'Player', 'Group', 'Start', 'Current', 'Gain', '%', 'TC', 'TG'], growthRows)
+        : makeTable(['#', 'Player', 'Group', 'Power', 'TC', 'TG'], topPowerRows);
 
       const watchTable = watchRows
         ? makeTable(['Player', 'Group', 'Reason', 'Power'], watchRows)
         : '<p class="muted">No watchlist items yet.</p>';
 
       const baselineCallout = !stats.hasGrowth
-        ? '<section class="panel"><h2>Baseline captured</h2><p>This dashboard has one snapshot so far. After the next upload, the growth leaderboard becomes the main KvK prep view.</p></section>'
+        ? (
+          '<section class="panel">' +
+            '<h2>Baseline Captured</h2>' +
+            '<p>This is the starting snapshot. After the next update, the dashboard will show power gain, percentage gain, and low-growth tracking.</p>' +
+          '</section>'
+        )
         : '';
+
+      const topPlayerName = stats.topPlayer ? escapeHtml(stats.topPlayer.name) : '—';
+      const topPlayerPower = stats.topPlayer ? formatPower(stats.topPlayer.currentPower) : '—';
 
       app.innerHTML =
         '<header class="hero">' +
           '<div class="eyebrow">Datashot</div>' +
           '<h1>KvK Prep Growth Tracker</h1>' +
-          '<p class="muted">Static public dashboard backed by one manually updated UTC data file.</p>' +
-          '<p class="muted">Latest data update: ' + escapeHtml(stats.latestTimeUtc || '—') + '</p>' +
+          '<p class="muted">Alliance power, Town Center, and Truegold readiness for KvK preparation.</p>' +
+          '<p class="muted">Latest update: ' + escapeHtml(stats.latestTimeUtc || '—') + ' UTC</p>' +
         '</header>' +
 
         baselineCallout +
@@ -428,9 +644,26 @@
           '<div class="stat"><span>Members</span><strong>' + stats.players.length + '</strong></div>' +
           '<div class="stat"><span>Total Power</span><strong>' + formatPower(stats.totalPower) + '</strong></div>' +
           '<div class="stat"><span>Average Power</span><strong>' + formatPower(stats.avgPower) + '</strong></div>' +
-          '<div class="stat"><span>Snapshots</span><strong>' + stats.dates.length + '</strong></div>' +
-          '<div class="stat"><span>Latest UTC Date</span><strong>' + escapeHtml(stats.latestTimeUtc ? stats.latestTimeUtc.slice(0, 10) : '—') + '</strong></div>' +
-          '<div class="stat"><span>Data Source</span><strong>Manual</strong></div>' +
+          '<div class="stat"><span>TC30 Members</span><strong>' + stats.tc30Count + '</strong></div>' +
+          '<div class="stat"><span>TC29+ Members</span><strong>' + stats.tc29PlusCount + '</strong></div>' +
+          '<div class="stat"><span>Truegold Members</span><strong>' + stats.truegoldCount + '</strong></div>' +
+        '</section>' +
+
+        '<section class="two-col">' +
+          '<section class="panel">' +
+            '<h2>Alliance Snapshot</h2>' +
+            '<div class="highlight-card">' +
+              '<span class="muted">Top current power</span>' +
+              '<strong>' + topPlayerName + '</strong>' +
+              '<span>' + topPlayerPower + '</span>' +
+            '</div>' +
+          '</section>' +
+
+          '<section class="panel">' +
+            '<h2>Power by Rank Group</h2>' +
+            '<p class="section-note">Total visible power contribution by alliance rank group.</p>' +
+            makePowerBarChart(stats.groupStats, 'totalPower', 'group') +
+          '</section>' +
         '</section>' +
 
         '<section class="panel">' +
@@ -439,11 +672,31 @@
         '</section>' +
 
         '<section class="two-col">' +
-          '<section class="panel"><h2>Rank Group Contribution</h2>' +
+          '<section class="panel">' +
+            '<h2>Town Center Readiness</h2>' +
+            '<p class="section-note">Town Center level is the core progression level shown beside the tower icon.</p>' +
+            makeBarChart(stats.townCenterBuckets, 'count', 'label') +
+          '</section>' +
+
+          '<section class="panel">' +
+            '<h2>Truegold Advancement</h2>' +
+            '<p class="section-note">Gold numbered badges indicate Truegold tier: TG-1, TG-2, and above.</p>' +
+            makeBarChart(stats.truegoldBuckets, 'count', 'label') +
+          '</section>' +
+        '</section>' +
+
+        '<section class="two-col">' +
+          '<section class="panel">' +
+            '<h2>Rank Group Table</h2>' +
             makeTable(['Group', 'Members', 'Total Power', 'Average Power'], groupRows) +
           '</section>' +
-          '<section class="panel"><h2>Furnace Readiness</h2>' +
-            makeTable(['Bucket', 'Members', 'Power'], furnaceRows) +
+
+          '<section class="panel">' +
+            '<h2>Readiness Tables</h2>' +
+            '<h3>Town Center</h3>' +
+            makeTable(['Bucket', 'Members', 'Power'], townCenterRows) +
+            '<h3>Truegold</h3>' +
+            makeTable(['Bucket', 'Members', 'Power'], truegoldRows) +
           '</section>' +
         '</section>' +
 
@@ -453,9 +706,9 @@
         '</section>' +
 
         '<section class="panel">' +
-          '<h2>Manual Update Workflow</h2>' +
-          '<p>Send screenshots to ChatGPT, get parsed JSON/CSV, replace <code>public/data/kvk-snapshots.json</code>, then commit.</p>' +
-          '<p class="muted">All snapshot times are stored and calculated in UTC.</p>' +
+          '<h2>KvK Prep Focus</h2>' +
+          '<p>Growth matters more than starting size. The next snapshot will unlock gain, percentage gain, and low-growth tracking.</p>' +
+          '<p class="muted">All timestamps are tracked in UTC.</p>' +
         '</section>';
     }
 
@@ -476,7 +729,7 @@
           '<section class="panel">' +
             '<h1>Datashot KvK Tracker</h1>' +
             '<p class="error">' + escapeHtml(err.message) + '</p>' +
-            '<p>Check that <code>public/data/kvk-snapshots.json</code> exists and contains valid JSON.</p>' +
+            '<p>Check that <code>data/kvk-snapshots.json</code> exists and contains valid JSON.</p>' +
           '</section>';
       }
     }
