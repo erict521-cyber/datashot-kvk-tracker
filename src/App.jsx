@@ -18,10 +18,12 @@ export default function App() {
           return;
         }
 
-        const res = await fetch('/data/kvk-snapshots.json', { cache: 'no-store' });
-        if (!res.ok) {
-          throw new Error(`Could not load /data/kvk-snapshots.json (${res.status})`);
-        }
+        const dataUrl = `${import.meta.env.BASE_URL}data/kvk-snapshots.json`;
+const res = await fetch(dataUrl, { cache: 'no-store' });
+
+if (!res.ok) {
+  throw new Error(`Could not load ${dataUrl} (${res.status})`);
+}
 
         setData(await res.json());
       } catch (err) {
