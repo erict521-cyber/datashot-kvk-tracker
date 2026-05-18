@@ -1,15 +1,49 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Datashot KvK Tracker</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="./src/main.jsx"></script>
-  </body>
-</html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Datashot KvK Tracker</title>
+  <style>
+    :root {
+      font-family: Arial, Helvetica, sans-serif;
+      color: #172033;
+      background: #f3f6fb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+    }
+
+    button {
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .app {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .hero,
+    .panel,
+    .stat {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+      border: 1px solid #e2e8f0;
+    }
+
+    .hero {
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+
     .eyebrow {
       text-transform: uppercase;
       letter-spacing: 0.12em;
@@ -22,6 +56,24 @@
     h2,
     h3 {
       margin: 8px 0;
+    }
+
+    h1 {
+      font-size: clamp(34px, 7vw, 56px);
+      line-height: 1.05;
+    }
+
+    h2 {
+      font-size: clamp(24px, 5vw, 36px);
+      line-height: 1.1;
+    }
+
+    h3 {
+      font-size: 18px;
+    }
+
+    p {
+      margin: 0 0 10px;
     }
 
     .muted {
@@ -59,6 +111,166 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 18px;
+    }
+
+    .snapshot-grid {
+      display: grid;
+      grid-template-columns: minmax(240px, 340px) 1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .spotlight-card,
+    .chart-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .spotlight-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 250px;
+    }
+
+    .spotlight-label {
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .spotlight-name {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .spotlight-value {
+      font-size: 36px;
+      font-weight: 900;
+      color: #15803d;
+      margin-bottom: 8px;
+    }
+
+    .spotlight-sub,
+    .spotlight-meta {
+      color: #475569;
+      line-height: 1.4;
+    }
+
+    .chart-card {
+      width: 100%;
+      border: 1px solid #e2e8f0;
+      text-align: left;
+    }
+
+    .chart-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .chart-title {
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .chart-subtitle {
+      color: #64748b;
+      font-size: 14px;
+      margin-top: 3px;
+    }
+
+    .chart-zoom {
+      color: #2563eb;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .chart-footer {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      color: #334155;
+      font-weight: 700;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    .line-chart {
+      width: 100%;
+      display: block;
+      overflow: visible;
+    }
+
+    .chart-grid {
+      stroke: #e2e8f0;
+      stroke-width: 1;
+    }
+
+    .chart-axis {
+      fill: #64748b;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .chart-line {
+      stroke: #2563eb;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .chart-point {
+      fill: #2563eb;
+      stroke: white;
+      stroke-width: 3;
+    }
+
+    .bar-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .bar-row {
+      display: grid;
+      gap: 6px;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 14px;
+    }
+
+    .bar-track {
+      height: 14px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2563eb, #22c55e);
+      border-radius: 999px;
+    }
+
+    .section-note {
+      margin-top: -4px;
+      margin-bottom: 14px;
+      color: #64748b;
+      font-size: 14px;
     }
 
     .table-wrap {
@@ -104,67 +316,48 @@
       border-radius: 5px;
     }
 
-    .bar-list {
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(15, 23, 42, 0.58);
       display: grid;
-      gap: 12px;
+      place-items: center;
+      padding: 18px;
     }
 
-    .bar-row {
-      display: grid;
-      gap: 6px;
+    .modal-card {
+      width: min(1000px, 100%);
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      background: white;
+      border-radius: 22px;
+      box-shadow: 0 24px 80px rgba(15, 23, 42, 0.35);
+      padding: 20px;
     }
 
-    .bar-label {
+    .modal-head {
       display: flex;
       justify-content: space-between;
       gap: 12px;
-      font-size: 14px;
+      align-items: center;
+      margin-bottom: 12px;
     }
 
-    .bar-track {
-      height: 14px;
-      background: #e2e8f0;
+    .close-btn {
+      border: 0;
       border-radius: 999px;
-      overflow: hidden;
+      background: #172033;
+      color: white;
+      padding: 10px 14px;
+      font-weight: 800;
     }
 
-    .bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #2563eb, #22c55e);
-      border-radius: 999px;
+    .hidden {
+      display: none;
     }
 
-    .section-note {
-      margin-top: -4px;
-      margin-bottom: 14px;
-      color: #64748b;
-      font-size: 14px;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: #fef3c7;
-      color: #92400e;
-      font-weight: 700;
-      font-size: 12px;
-    }
-
-    .highlight-card {
-      display: grid;
-      gap: 10px;
-      padding: 14px;
-      border-radius: 14px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-    }
-
-    .highlight-card strong {
-      font-size: 20px;
-    }
-
-    @media (max-width: 600px) {
+    @media (max-width: 760px) {
       .app {
         padding: 12px;
       }
@@ -173,6 +366,14 @@
       .panel,
       .stat {
         border-radius: 12px;
+      }
+
+      .snapshot-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .spotlight-card {
+        min-height: auto;
       }
 
       .stat strong {
@@ -198,18 +399,41 @@
     </section>
   </div>
 
+  <div id="chart-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Alliance Total Growth Timeline</h3>
+        <button class="close-btn" type="button" id="close-modal">Close</button>
+      </div>
+      <p class="muted">Timeline uses exact snapshot timestamps in UTC. Prep start is Day 1 on 2026-05-18 UTC.</p>
+      <div id="modal-chart"></div>
+      <div id="modal-chart-footer" class="chart-footer"></div>
+    </div>
+  </div>
+
   <script>
     const DATA_URL = './data/kvk-snapshots.json';
+    const DEFAULT_PREP_START_DATE_UTC = '2026-05-18';
+    const DEFAULT_PREP_DAYS = 5;
 
     function formatPower(value) {
       const n = Number(value || 0);
-
       if (!Number.isFinite(n)) return '—';
       if (Math.abs(n) >= 1000000000) return (n / 1000000000).toFixed(2) + 'B';
       if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(n >= 100000000 ? 0 : 1) + 'M';
       if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + 'K';
-
       return String(n);
+    }
+
+    function formatSignedPower(value) {
+      const n = Number(value || 0);
+      return (n >= 0 ? '+' : '') + formatPower(n);
+    }
+
+    function formatPct(value) {
+      const n = Number(value || 0);
+      if (!Number.isFinite(n)) return '—';
+      return (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
     }
 
     function escapeHtml(value) {
@@ -252,6 +476,11 @@
       return Math.round(n);
     }
 
+    function parseIntOrNull(value) {
+      if (value === '' || value == null || Number.isNaN(Number(value))) return null;
+      return Number(value);
+    }
+
     function normalizeSnapshot(row) {
       const playerName = row.player_name || row.name || row.Player || row.player || '';
 
@@ -281,48 +510,46 @@
         row.tg ??
         null;
 
-      const parsedTruegold =
-  truegoldRaw === '' || truegoldRaw == null || Number.isNaN(Number(truegoldRaw))
-    ? null
-    : Number(truegoldRaw);
+      const parsedTruegold = parseIntOrNull(truegoldRaw);
+      let parsedTownCenter = parseIntOrNull(townCenterRaw);
 
-let parsedTownCenter =
-  townCenterRaw === '' || townCenterRaw == null || Number.isNaN(Number(townCenterRaw))
-    ? null
-    : Number(townCenterRaw);
+      if (parsedTruegold != null && parsedTruegold >= 1) {
+        parsedTownCenter = 30;
+      }
 
-// Truegold only unlocks after standard TC30 progression.
-// If a player has a TG badge, force Town Center to TC30 for readiness calculations.
-if (parsedTruegold != null && parsedTruegold >= 1) {
-  parsedTownCenter = 30;
-}
-
-return {
-  ...row,
-  player_name: playerName,
-  player_key: row.player_key || normalizeKey(playerName),
-  snapshot_time_utc: iso,
-  snapshot_date_utc: iso.slice(0, 10),
-  rank_group: row.rank_group || row.member_group || row.group || row.Group || 'Unknown',
-  power: parsePower(row.power ?? row.Power ?? row.power_m ?? row['Power M']),
-  town_center_level: parsedTownCenter,
-  truegold_level: parsedTruegold,
-};
+      return {
+        ...row,
+        player_name: playerName,
+        player_key: row.player_key || normalizeKey(playerName),
+        snapshot_time_utc: iso,
+        snapshot_date_utc: iso.slice(0, 10),
+        rank_group: row.rank_group || row.member_group || row.group || row.Group || 'Unknown',
+        power: parsePower(row.power ?? row.Power ?? row.power_m ?? row['Power M']),
+        town_center_level: parsedTownCenter,
+        truegold_level: parsedTruegold,
+      };
     }
 
     function buildStats(data) {
-      const snapshots = (data.snapshots || []).map(normalizeSnapshot);
+      const snapshots = (data.snapshots || [])
+        .map(normalizeSnapshot)
+        .sort((a, b) => new Date(a.snapshot_time_utc) - new Date(b.snapshot_time_utc));
+
+      const prepStartDateUtc =
+        data?.event?.prep_start_date_utc ||
+        data?.event?.prepStartDateUtc ||
+        DEFAULT_PREP_START_DATE_UTC;
+
+      const prepDays = Number(data?.event?.prep_days || data?.event?.prepDays || DEFAULT_PREP_DAYS);
       const byPlayer = new Map();
 
       for (const snap of snapshots) {
         if (!snap.player_key) continue;
-
-        if (!byPlayer.has(snap.player_key)) {
-          byPlayer.set(snap.player_key, []);
-        }
-
+        if (!byPlayer.has(snap.player_key)) byPlayer.set(snap.player_key, []);
         byPlayer.get(snap.player_key).push(snap);
       }
+
+      const earliestSnapshotTimeUtc = snapshots[0] ? snapshots[0].snapshot_time_utc : null;
 
       const players = Array.from(byPlayer.entries()).map(([key, list]) => {
         list.sort((a, b) => new Date(a.snapshot_time_utc) - new Date(b.snapshot_time_utc));
@@ -330,6 +557,7 @@ return {
         const first = list[0];
         const latest = list[list.length - 1];
         const gain = Number(latest.power || 0) - Number(first.power || 0);
+        const growthEligible = first.snapshot_time_utc === earliestSnapshotTimeUtc;
 
         return {
           key,
@@ -341,6 +569,7 @@ return {
           startingPower: Number(first.power || 0),
           gain,
           pctGain: first.power ? (gain / first.power) * 100 : 0,
+          growthEligible,
           snapshots: list,
         };
       });
@@ -398,23 +627,25 @@ return {
         };
       });
 
-      const hasGrowth = dates.length > 1;
+      const timeline = buildTimeline(snapshots, prepStartDateUtc);
+      const hasGrowth = timeline.length > 1;
 
-      const growthLeaders = [...players]
-        .sort((a, b) => b.gain - a.gain)
+      const growthLeaders = players
+        .filter((p) => p.growthEligible)
+        .sort((a, b) => b.gain - a.gain || b.pctGain - a.pctGain)
         .slice(0, 20);
 
-      const topPower = players.slice(0, 20);
+      const highestGrowerOverall = growthLeaders[0] || null;
 
       const watchlist = players
-        .filter((p) => !p.townCenter || p.townCenter < 28 || (hasGrowth && p.gain <= 0))
+        .filter((p) => {
+          const missingSnapshot = p.snapshots.length < timeline.length;
+          const noGrowth = hasGrowth && p.growthEligible && p.gain <= 0;
+          const lowTc = !p.townCenter || p.townCenter < 28;
+          return missingSnapshot || noGrowth || lowTc;
+        })
+        .sort((a, b) => a.gain - b.gain)
         .slice(0, 25);
-
-      const topPlayer = players[0] || null;
-
-      const tc30Count = players.filter((p) => p.townCenter === 30).length;
-      const tc29PlusCount = players.filter((p) => p.townCenter != null && p.townCenter >= 29).length;
-      const truegoldCount = players.filter((p) => p.truegold != null && p.truegold >= 1).length;
 
       return {
         snapshots,
@@ -427,14 +658,57 @@ return {
         townCenterBuckets,
         truegoldBuckets,
         growthLeaders,
-        topPower,
+        highestGrowerOverall,
+        topPower: players.slice(0, 20),
         watchlist,
         hasGrowth,
-        topPlayer,
-        tc30Count,
-        tc29PlusCount,
-        truegoldCount,
+        timeline,
+        prepStartDateUtc,
+        prepDays,
+        currentPrepDay: calculatePrepDay(latestTimeUtc, prepStartDateUtc),
+        tc30Count: players.filter((p) => p.townCenter === 30).length,
+        tc29PlusCount: players.filter((p) => p.townCenter != null && p.townCenter >= 29).length,
+        truegoldCount: players.filter((p) => p.truegold != null && p.truegold >= 1).length,
       };
+    }
+
+    function buildTimeline(snapshots, prepStartDateUtc) {
+      const byTime = new Map();
+
+      for (const snap of snapshots) {
+        if (!byTime.has(snap.snapshot_time_utc)) byTime.set(snap.snapshot_time_utc, []);
+        byTime.get(snap.snapshot_time_utc).push(snap);
+      }
+
+      const points = Array.from(byTime.entries())
+        .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+        .map(([timeUtc, rows]) => ({
+          timeUtc,
+          dateUtc: timeUtc.slice(0, 10),
+          totalPower: rows.reduce((sum, row) => sum + Number(row.power || 0), 0),
+          memberCount: rows.length,
+          prepDay: calculatePrepDay(timeUtc, prepStartDateUtc),
+        }));
+
+      const baseline = points[0] ? points[0].totalPower : 0;
+
+      return points.map((point) => ({
+        ...point,
+        gainFromStart: point.totalPower - baseline,
+      }));
+    }
+
+    function calculatePrepDay(timeUtc, prepStartDateUtc) {
+      if (!timeUtc || !prepStartDateUtc) return 1;
+
+      const dayMs = 24 * 60 * 60 * 1000;
+      const current = new Date(timeUtc);
+      const start = new Date(prepStartDateUtc + 'T00:00:00Z');
+
+      const currentDayUtc = Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate());
+      const startDayUtc = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+
+      return Math.floor((currentDayUtc - startDayUtc) / dayMs) + 1;
     }
 
     function makeTable(headers, rows) {
@@ -500,6 +774,84 @@ return {
           }).join('') +
         '</div>'
       );
+    }
+
+    function makeLineChart(points, height, detailed) {
+      if (!points.length) {
+        return '<div class="chart-card">No timeline data available.</div>';
+      }
+
+      const width = 860;
+      const padTop = 22;
+      const padRight = 18;
+      const padBottom = detailed ? 54 : 38;
+      const padLeft = 58;
+      const plotWidth = width - padLeft - padRight;
+      const plotHeight = height - padTop - padBottom;
+
+      const values = points.map((p) => Number(p.totalPower || 0));
+      const minRaw = Math.min(...values);
+      const maxRaw = Math.max(...values);
+      const rawRange = maxRaw - minRaw || Math.max(1, maxRaw * 0.03);
+      const min = minRaw - rawRange * 0.08;
+      const max = maxRaw + rawRange * 0.08;
+      const range = max - min || 1;
+
+      const positions = points.map((point, index) => {
+        const x = points.length === 1 ? padLeft + plotWidth / 2 : padLeft + (index / (points.length - 1)) * plotWidth;
+        const y = padTop + ((max - point.totalPower) / range) * plotHeight;
+        return { ...point, x, y };
+      });
+
+      const path = positions.map((p, i) => (i === 0 ? 'M ' : 'L ') + p.x + ' ' + p.y).join(' ');
+      const tickCount = 4;
+      const yTicks = Array.from({ length: tickCount + 1 }, (_, i) => {
+        const value = max - ((max - min) * i) / tickCount;
+        const y = padTop + (plotHeight * i) / tickCount;
+        return { value, y };
+      });
+
+      const labelIndexes = uniqueIndexes(
+        detailed
+          ? [0, Math.floor((points.length - 1) * 0.25), Math.floor((points.length - 1) * 0.5), Math.floor((points.length - 1) * 0.75), points.length - 1]
+          : [0, Math.floor((points.length - 1) / 2), points.length - 1]
+      );
+
+      return (
+        '<svg class="line-chart" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none" role="img" aria-label="Alliance total power growth timeline">' +
+          yTicks.map((tick) => (
+            '<g>' +
+              '<line x1="' + padLeft + '" y1="' + tick.y + '" x2="' + (width - padRight) + '" y2="' + tick.y + '" class="chart-grid"></line>' +
+              '<text x="12" y="' + (tick.y + 4) + '" class="chart-axis">' + formatPower(tick.value) + '</text>' +
+            '</g>'
+          )).join('') +
+          '<path d="' + path + '" fill="none" class="chart-line"></path>' +
+          positions.map((p) => (
+            '<circle cx="' + p.x + '" cy="' + p.y + '" r="5" class="chart-point"></circle>'
+          )).join('') +
+          labelIndexes.map((index) => {
+            const p = positions[index];
+            return '<text x="' + p.x + '" y="' + (height - 10) + '" text-anchor="middle" class="chart-axis">' + formatAxisLabel(p.timeUtc, detailed) + '</text>';
+          }).join('') +
+        '</svg>'
+      );
+    }
+
+    function uniqueIndexes(values) {
+      return Array.from(new Set(values.filter((v) => Number.isInteger(v) && v >= 0)));
+    }
+
+    function formatAxisLabel(value, detailed) {
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return String(value || '—');
+
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      const hour = String(d.getUTCHours()).padStart(2, '0');
+      const minute = String(d.getUTCMinutes()).padStart(2, '0');
+
+      if (detailed) return month + '/' + day + ' ' + hour + ':' + minute + 'Z';
+      return month + '/' + day;
     }
 
     function renderDashboard(data) {
@@ -578,10 +930,10 @@ return {
       const watchRows = stats.watchlist.map((p) => {
         const reasons = [];
 
+        if (p.snapshots.length < stats.timeline.length) reasons.push('Missing latest snapshot');
+        if (stats.hasGrowth && p.growthEligible && p.gain <= 0) reasons.push('No growth');
         if (!p.townCenter) reasons.push('Unknown Town Center');
         else if (p.townCenter < 28) reasons.push('TC' + p.townCenter);
-
-        if (stats.hasGrowth && p.gain <= 0) reasons.push('No growth');
 
         return (
           '<tr>' +
@@ -610,8 +962,10 @@ return {
         )
         : '';
 
-      const topPlayerName = stats.topPlayer ? escapeHtml(stats.topPlayer.name) : '—';
-      const topPlayerPower = stats.topPlayer ? formatPower(stats.topPlayer.currentPower) : '—';
+      const highest = stats.highestGrowerOverall;
+      const startPower = stats.timeline[0]?.totalPower || 0;
+      const currentPower = stats.timeline.at(-1)?.totalPower || 0;
+      const totalGain = currentPower - startPower;
 
       app.innerHTML =
         '<header class="hero">' +
@@ -632,46 +986,61 @@ return {
           '<div class="stat"><span>Truegold Members</span><strong>' + stats.truegoldCount + '</strong></div>' +
         '</section>' +
 
-        '<section class="two-col">' +
-          '<section class="panel">' +
-            '<h2>Alliance Snapshot</h2>' +
-            '<div class="highlight-card">' +
-              '<span class="muted">Top current power</span>' +
-              '<strong>' + topPlayerName + '</strong>' +
-              '<span>' + topPlayerPower + '</span>' +
+        '<section class="panel">' +
+          '<h2>Alliance Snapshot</h2>' +
+          '<div class="snapshot-grid">' +
+            '<div class="spotlight-card">' +
+              '<div class="spotlight-label">Highest grower overall</div>' +
+              (
+                highest
+                  ? '<div class="spotlight-name">' + escapeHtml(highest.name) + '</div>' +
+                    '<div class="spotlight-value">' + formatSignedPower(highest.gain) + '</div>' +
+                    '<div class="spotlight-sub">' + formatPct(highest.pctGain) + ' from prep start</div>' +
+                    '<div class="spotlight-meta">Current power: ' + formatPower(highest.currentPower) + ' • ' + escapeHtml(highest.group) + ' • ' +
+                      (highest.townCenter ? 'TC' + highest.townCenter : 'TC unknown') +
+                      (highest.truegold ? ' • TG-' + highest.truegold : '') +
+                    '</div>'
+                  : '<p class="muted">Need at least two prep snapshots to calculate the highest grower.</p>'
+              ) +
             '</div>' +
-          '</section>' +
 
+            '<button class="chart-card" type="button" id="open-chart">' +
+              '<div class="chart-head">' +
+                '<div>' +
+                  '<div class="chart-title">Alliance total growth</div>' +
+                  '<div class="chart-subtitle">From prep start • UTC timeline • Prep day ' + stats.currentPrepDay + ' of ' + stats.prepDays + '</div>' +
+                '</div>' +
+                '<span class="chart-zoom">Tap to enlarge</span>' +
+              '</div>' +
+              makeLineChart(stats.timeline, 220, false) +
+              '<div class="chart-footer">' +
+                '<span>Start: ' + formatPower(startPower) + '</span>' +
+                '<span>Current: ' + formatPower(currentPower) + '</span>' +
+                '<span class="good">' + formatSignedPower(totalGain) + '</span>' +
+              '</div>' +
+            '</button>' +
+          '</div>' +
+        '</section>' +
+
+        '<section class="two-col">' +
           '<section class="panel">' +
             '<h2>Power by Rank Group</h2>' +
             '<p class="section-note">Total visible power contribution by alliance rank group.</p>' +
             makePowerBarChart(stats.groupStats, 'totalPower', 'group') +
           '</section>' +
-        '</section>' +
 
-        '<section class="panel">' +
-          '<h2>' + (stats.hasGrowth ? 'Growth Leaders' : 'Top Power Leaderboard') + '</h2>' +
-          mainTable +
-        '</section>' +
-
-        '<section class="two-col">' +
           '<section class="panel">' +
             '<h2>Town Center Readiness</h2>' +
             '<p class="section-note">Town Center level is the core progression level shown beside the tower icon.</p>' +
             makeBarChart(stats.townCenterBuckets, 'count', 'label') +
           '</section>' +
-
-          '<section class="panel">' +
-            '<h2>Truegold Advancement</h2>' +
-            '<p class="section-note">Gold numbered badges indicate Truegold tier: TG-1, TG-2, and above.</p>' +
-            makeBarChart(stats.truegoldBuckets, 'count', 'label') +
-          '</section>' +
         '</section>' +
 
         '<section class="two-col">' +
           '<section class="panel">' +
-            '<h2>Rank Group Table</h2>' +
-            makeTable(['Group', 'Members', 'Total Power', 'Average Power'], groupRows) +
+            '<h2>Truegold Advancement</h2>' +
+            '<p class="section-note">Gold numbered badges indicate Truegold tier: TG-1, TG-2, and above.</p>' +
+            makeBarChart(stats.truegoldBuckets, 'count', 'label') +
           '</section>' +
 
           '<section class="panel">' +
@@ -684,16 +1053,61 @@ return {
         '</section>' +
 
         '<section class="panel">' +
-          '<h2>Watchlist</h2>' +
-          watchTable +
+          '<h2>' + (stats.hasGrowth ? 'Growth Leaders' : 'Top Power Leaderboard') + '</h2>' +
+          '<p class="section-note">Overall gain from the start of prep. New players added after prep start are excluded from growth ranking.</p>' +
+          mainTable +
+        '</section>' +
+
+        '<section class="two-col">' +
+          '<section class="panel">' +
+            '<h2>Rank Group Table</h2>' +
+            makeTable(['Group', 'Members', 'Total Power', 'Average Power'], groupRows) +
+          '</section>' +
+
+          '<section class="panel">' +
+            '<h2>Watchlist</h2>' +
+            watchTable +
+          '</section>' +
         '</section>' +
 
         '<section class="panel">' +
           '<h2>KvK Prep Focus</h2>' +
-          '<p>Growth matters more than starting size. The next snapshot will unlock gain, percentage gain, and low-growth tracking.</p>' +
+          '<p>Today in game time is Day 1 of a 5-day prep window. Growth is calculated from the starting prep snapshot using UTC timestamps.</p>' +
           '<p class="muted">All timestamps are tracked in UTC.</p>' +
         '</section>';
+
+      const openChartButton = document.getElementById('open-chart');
+      if (openChartButton) {
+        openChartButton.addEventListener('click', () => openChartModal(stats));
+      }
     }
+
+    function openChartModal(stats) {
+      const modal = document.getElementById('chart-modal');
+      const modalChart = document.getElementById('modal-chart');
+      const modalFooter = document.getElementById('modal-chart-footer');
+
+      const startPower = stats.timeline[0]?.totalPower || 0;
+      const currentPower = stats.timeline.at(-1)?.totalPower || 0;
+      const totalGain = currentPower - startPower;
+
+      modalChart.innerHTML = makeLineChart(stats.timeline, 360, true);
+      modalFooter.innerHTML =
+        '<span>Start: ' + formatPower(startPower) + '</span>' +
+        '<span>Current: ' + formatPower(currentPower) + '</span>' +
+        '<span class="good">' + formatSignedPower(totalGain) + '</span>';
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeChartModal() {
+      document.getElementById('chart-modal').classList.add('hidden');
+    }
+
+    document.getElementById('close-modal').addEventListener('click', closeChartModal);
+    document.getElementById('chart-modal').addEventListener('click', (event) => {
+      if (event.target.id === 'chart-modal') closeChartModal();
+    });
 
     async function loadData() {
       const app = document.getElementById('app');
@@ -706,6 +1120,14 @@ return {
         }
 
         const data = await res.json();
+
+        data.event = {
+          ...(data.event || {}),
+          timezone_policy: 'UTC',
+          prep_start_date_utc: data?.event?.prep_start_date_utc || DEFAULT_PREP_START_DATE_UTC,
+          prep_days: data?.event?.prep_days || DEFAULT_PREP_DAYS,
+        };
+
         renderDashboard(data);
       } catch (err) {
         app.innerHTML =
