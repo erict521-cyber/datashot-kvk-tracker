@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Kingdata roster movement patch v2 - REAL PATCH -->
+<!-- Kingdata roster movement patch v3 - first-seen growth baseline and permanent movement ledger -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -298,45 +298,66 @@
       const baselineKeys = new Set([...baselineByKey.keys()]);
       const latestKeys = new Set([...latestByKey.keys()]);
 
-      const continuingKeys = [...latestKeys].filter((key) => baselineKeys.has(key));
-      const joinedKeys = [...latestKeys].filter((key) => !baselineKeys.has(key));
-      const leftKeys = [...baselineKeys].filter((key) => !latestKeys.has(key));
-
+      const playerHistory = buildPlayerHistory(snapshots);
       const baselineAlliancePower = sumRows(baselineRows);
       const currentAlliancePower = sumRows(latestRows);
       const netAllianceChange = currentAlliancePower - baselineAlliancePower;
 
-      const organicGrowth = continuingKeys.reduce((sum, key) => {
-        return sum + Number(latestByKey.get(key)?.power || 0) - Number(baselineByKey.get(key)?.power || 0);
-      }, 0);
-
-      const joinedPower = joinedKeys.reduce((sum, key) => sum + Number(latestByKey.get(key)?.power || 0), 0);
-      const leftPower = leftKeys.reduce((sum, key) => sum + Number(baselineByKey.get(key)?.power || 0), 0);
-      const rosterMovementImpact = joinedPower - leftPower;
-
       const activePlayers = latestRows.map((latest) => {
         const key = latest.player_key;
         const baseline = baselineByKey.get(key);
-        const growthEligible = Boolean(baseline);
-        const gain = growthEligible ? Number(latest.power || 0) - Number(baseline.power || 0) : 0;
+        const history = playerHistory.get(key);
+        const firstSeen = history?.firstSeen || latest;
+        const firstSeenPower = Number(firstSeen.power || 0);
+        const currentPower = Number(latest.power || 0);
+        const originalMember = baselineKeys.has(key);
+        const joinedAfterStart = !originalMember;
+        const growthBaselinePower = originalMember ? Number(baseline.power || 0) : firstSeenPower;
+        const gain = currentPower - growthBaselinePower;
         return {
           key,
           name: latest.player_name,
           group: latest.rank_group,
           townCenter: latest.town_center_level,
           truegold: latest.truegold_level,
-          currentPower: Number(latest.power || 0),
-          startingPower: growthEligible ? Number(baseline.power || 0) : null,
+          currentPower,
+          startingPower: growthBaselinePower,
+          firstSeenPower,
+          firstSeenTimeUtc: firstSeen.snapshot_time_utc,
+          originalMember,
+          joinedAfterStart,
+          status: joinedAfterStart ? 'Joined after start' : 'Original roster',
           gain,
-          pctGain: growthEligible && baseline.power ? (gain / baseline.power) * 100 : 0,
-          growthEligible,
+          pctGain: growthBaselinePower ? (gain / growthBaselinePower) * 100 : 0,
+          growthEligible: true,
         };
       }).sort((a, b) => {
-        if (a.growthEligible !== b.growthEligible) return a.growthEligible ? -1 : 1;
         return b.gain - a.gain || b.currentPower - a.currentPower;
       });
 
-      const highestGrowerOverall = activePlayers.filter((p) => p.growthEligible).sort((a, b) => b.gain - a.gain)[0] || null;
+      const continuingOriginalGrowth = activePlayers
+        .filter((p) => p.originalMember)
+        .reduce((sum, p) => sum + Number(p.gain || 0), 0);
+
+      const postJoinGrowth = activePlayers
+        .filter((p) => p.joinedAfterStart)
+        .reduce((sum, p) => sum + Number(p.gain || 0), 0);
+
+      const organicGrowth = continuingOriginalGrowth + postJoinGrowth;
+
+      const activeJoinedPlayers = activePlayers.filter((p) => p.joinedAfterStart);
+      const departedOriginalPlayers = [...baselineKeys]
+        .filter((key) => !latestKeys.has(key))
+        .map((key) => baselineByKey.get(key))
+        .filter(Boolean);
+
+      const joinedPower = activeJoinedPlayers.reduce((sum, p) => sum + Number(p.firstSeenPower || 0), 0);
+      const leftPower = departedOriginalPlayers.reduce((sum, row) => sum + Number(row.power || 0), 0);
+      const rosterMovementImpact = joinedPower - leftPower;
+
+      const movementLedger = buildMovementLedger(playerHistory, baselineKeys, latestKeys, baselineByKey, latestTimeUtc);
+      const joinedPlayers = movementLedger.filter((event) => event.type === 'Joined').sort((a, b) => new Date(a.eventTimeUtc) - new Date(b.eventTimeUtc) || b.power - a.power);
+      const leftPlayers = movementLedger.filter((event) => event.type === 'Left').sort((a, b) => new Date(a.eventTimeUtc) - new Date(b.eventTimeUtc) || b.power - a.power);
 
       const groupOrder = ['R5', 'R4', 'R3', 'R2', 'R1', 'Unknown'];
       const groupStats = groupOrder.map((group) => {
@@ -373,11 +394,10 @@
 
       const timeline = buildTimeline(snapshots, prepStartDateUtc);
 
-      const joinedPlayers = joinedKeys.map((key) => rowToMovementPlayer(latestByKey.get(key), 'Joined')).sort((a, b) => b.power - a.power);
-      const leftPlayers = leftKeys.map((key) => rowToMovementPlayer(baselineByKey.get(key), 'Left')).sort((a, b) => b.power - a.power);
+      const highestGrowerOverall = activePlayers.sort((a, b) => b.gain - a.gain)[0] || null;
 
       const watchlist = activePlayers
-        .filter((p) => !p.townCenter || p.townCenter < 28 || (p.growthEligible && timeline.length > 1 && p.gain <= 0))
+        .filter((p) => !p.townCenter || p.townCenter < 28 || (timeline.length > 1 && p.gain <= 0))
         .sort((a, b) => a.gain - b.gain)
         .slice(0, 25);
 
@@ -391,10 +411,13 @@
         baselineAlliancePower,
         currentAlliancePower,
         netAllianceChange,
+        continuingOriginalGrowth,
+        postJoinGrowth,
         organicGrowth,
         joinedPower,
         leftPower,
         rosterMovementImpact,
+        movementLedger,
         joinedPlayers,
         leftPlayers,
         groupStats,
@@ -410,6 +433,65 @@
         tc29PlusCount: activePlayers.filter((p) => p.townCenter != null && p.townCenter >= 29).length,
         truegoldCount: activePlayers.filter((p) => p.truegold != null && p.truegold >= 1).length,
       };
+    }
+
+    function buildPlayerHistory(snapshots) {
+      const history = new Map();
+      for (const row of snapshots) {
+        const key = row.player_key;
+        if (!history.has(key)) history.set(key, { rows: [] });
+        history.get(key).rows.push(row);
+      }
+
+      for (const record of history.values()) {
+        record.rows.sort((a, b) => new Date(a.snapshot_time_utc) - new Date(b.snapshot_time_utc));
+        record.firstSeen = record.rows[0];
+        record.lastSeen = record.rows.at(-1);
+      }
+
+      return history;
+    }
+
+    function buildMovementLedger(playerHistory, baselineKeys, latestKeys, baselineByKey, latestTimeUtc) {
+      const ledger = [];
+
+      for (const [key, history] of playerHistory.entries()) {
+        const firstSeen = history.firstSeen;
+        const lastSeen = history.lastSeen;
+        const joinedAfterStart = !baselineKeys.has(key);
+        const currentlyActive = latestKeys.has(key);
+
+        if (joinedAfterStart && firstSeen) {
+          ledger.push({
+            type: 'Joined',
+            key,
+            name: firstSeen.player_name,
+            group: firstSeen.rank_group,
+            power: Number(firstSeen.power || 0),
+            townCenter: firstSeen.town_center_level,
+            truegold: firstSeen.truegold_level,
+            eventTimeUtc: firstSeen.snapshot_time_utc,
+            active: currentlyActive,
+          });
+        }
+
+        if (lastSeen && latestTimeUtc && lastSeen.snapshot_time_utc !== latestTimeUtc) {
+          const baseline = baselineByKey.get(key);
+          ledger.push({
+            type: 'Left',
+            key,
+            name: lastSeen.player_name,
+            group: lastSeen.rank_group,
+            power: Number((baseline && baselineKeys.has(key) ? baseline.power : lastSeen.power) || 0),
+            townCenter: lastSeen.town_center_level,
+            truegold: lastSeen.truegold_level,
+            eventTimeUtc: lastSeen.snapshot_time_utc,
+            active: false,
+          });
+        }
+      }
+
+      return ledger.sort((a, b) => new Date(a.eventTimeUtc) - new Date(b.eventTimeUtc));
     }
 
     function mapLatestByKey(rows) {
@@ -550,21 +632,22 @@
       const app = document.getElementById('app');
 
       const growthRows = stats.activePlayers.map((p, i) => {
-        const gainClass = p.growthEligible ? (p.gain >= 0 ? 'good' : 'bad') : '';
-        const startText = p.growthEligible ? formatPower(p.startingPower) : 'New';
-        const gainText = p.growthEligible ? formatSignedPower(p.gain) : '—';
-        const pctText = p.growthEligible ? formatPct(p.pctGain) : '—';
+        const gainClass = p.gain >= 0 ? 'good' : 'bad';
+        const startText = formatPower(p.startingPower);
+        const gainText = formatSignedPower(p.gain);
+        const pctText = formatPct(p.pctGain);
         const tcText = p.townCenter == null ? '—' : 'TC' + p.townCenter;
         const tgText = p.truegold == null ? '—' : 'TG-' + p.truegold;
 
-        return '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(p.group) + '</td><td>' + startText + '</td><td>' + formatPower(p.currentPower) + '</td><td class="' + gainClass + '">' + gainText + '</td><td>' + pctText + '</td><td>' + tcText + '</td><td>' + tgText + '</td></tr>';
+        return '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(p.group) + '</td><td>' + escapeHtml(p.status) + '</td><td>' + startText + '</td><td>' + formatPower(p.currentPower) + '</td><td class="' + gainClass + '">' + gainText + '</td><td>' + pctText + '</td><td>' + tcText + '</td><td>' + tgText + '</td></tr>';
       }).join('');
 
       const movementRows = [...stats.joinedPlayers, ...stats.leftPlayers].map((p) => {
         const typeClass = p.type === 'Joined' ? 'good' : 'bad';
         const tcText = p.townCenter == null ? '—' : 'TC' + p.townCenter;
         const tgText = p.truegold == null ? '—' : 'TG-' + p.truegold;
-        return '<tr><td class="' + typeClass + '">' + p.type + '</td><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(p.group) + '</td><td>' + formatPower(p.power) + '</td><td>' + tcText + '</td><td>' + tgText + '</td></tr>';
+        const statusText = p.active ? 'Active' : 'Historical';
+        return '<tr><td class="' + typeClass + '">' + p.type + '</td><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(p.group) + '</td><td>' + formatPower(p.power) + '</td><td>' + formatAxisLabel(p.eventTimeUtc, true) + '</td><td>' + statusText + '</td><td>' + tcText + '</td><td>' + tgText + '</td></tr>';
       }).join('');
 
       const groupRows = stats.groupStats.map((g) => '<tr><td>' + escapeHtml(g.group) + '</td><td>' + g.count + '</td><td>' + formatPower(g.totalPower) + '</td><td>' + formatPower(g.avgPower) + '</td></tr>').join('');
@@ -581,7 +664,7 @@
 
       const highest = stats.highestGrowerOverall;
       const movementTable = movementRows
-        ? makeTable(['Status', 'Player', 'Group', 'Power', 'TC', 'TG'], movementRows)
+        ? makeTable(['Status', 'Player', 'Group', 'Power', 'Event Time', 'Current Status', 'TC', 'TG'], movementRows)
         : '<p class="muted">No roster movement detected from the starting snapshot.</p>';
 
       app.innerHTML =
@@ -596,7 +679,7 @@
           '<div class="stat"><span>Active Members</span><strong>' + stats.latestRows.length + '</strong></div>' +
           '<div class="stat"><span>Current Alliance Power</span><strong>' + formatPower(stats.currentAlliancePower) + '</strong></div>' +
           '<div class="stat"><span>Net Alliance Change</span><strong class="' + (stats.netAllianceChange >= 0 ? 'good' : 'bad') + '">' + formatSignedPower(stats.netAllianceChange) + '</strong></div>' +
-          '<div class="stat"><span>Organic Growth</span><strong class="' + (stats.organicGrowth >= 0 ? 'good' : 'bad') + '">' + formatSignedPower(stats.organicGrowth) + '</strong></div>' +
+          '<div class="stat"><span>Total Player Growth</span><strong class="' + (stats.organicGrowth >= 0 ? 'good' : 'bad') + '">' + formatSignedPower(stats.organicGrowth) + '</strong></div>' +
           '<div class="stat"><span>Roster Movement</span><strong class="' + (stats.rosterMovementImpact >= 0 ? 'good' : 'bad') + '">' + formatSignedPower(stats.rosterMovementImpact) + '</strong></div>' +
           '<div class="stat"><span>Truegold Members</span><strong>' + stats.truegoldCount + '</strong></div>' +
         '</section>' +
@@ -621,12 +704,13 @@
 
         '<section class="panel">' +
           '<h2>Alliance Power Breakdown</h2>' +
-          '<p class="section-note">Net Alliance Change = Organic Growth + Roster Movement Impact.</p>' +
+          '<p class="section-note">Net Alliance Change = Total Player Growth + Roster Movement Impact. Joined players use their first-seen power as their growth baseline.</p>' +
           '<section class="grid">' +
             '<div class="stat"><span>Baseline Alliance Power</span><strong>' + formatPower(stats.baselineAlliancePower) + '</strong></div>' +
             '<div class="stat"><span>Current Alliance Power</span><strong>' + formatPower(stats.currentAlliancePower) + '</strong></div>' +
-            '<div class="stat"><span>Organic Growth</span><strong class="' + (stats.organicGrowth >= 0 ? 'good' : 'bad') + '">' + formatSignedPower(stats.organicGrowth) + '</strong></div>' +
-            '<div class="stat"><span>Joined Power</span><strong class="good">' + formatPower(stats.joinedPower) + '</strong></div>' +
+            '<div class="stat"><span>Original Roster Growth</span><strong class="' + (stats.continuingOriginalGrowth >= 0 ? 'good' : 'bad') + '">' + formatSignedPower(stats.continuingOriginalGrowth) + '</strong></div>' +
+            '<div class="stat"><span>Post-Join Growth</span><strong class="' + (stats.postJoinGrowth >= 0 ? 'good' : 'bad') + '">' + formatSignedPower(stats.postJoinGrowth) + '</strong></div>' +
+            '<div class="stat"><span>Joined Baseline Power</span><strong class="good">' + formatPower(stats.joinedPower) + '</strong></div>' +
             '<div class="stat"><span>Left Power</span><strong class="bad">' + formatPower(stats.leftPower) + '</strong></div>' +
             '<div class="stat"><span>Roster Movement Impact</span><strong class="' + (stats.rosterMovementImpact >= 0 ? 'good' : 'bad') + '">' + formatSignedPower(stats.rosterMovementImpact) + '</strong></div>' +
           '</section>' +
@@ -644,12 +728,12 @@
 
         '<section class="panel">' +
           '<h2>All Player Growth</h2>' +
-          '<p class="section-note">All active members in one scrollable table. New players display as New and do not count as growth from zero.</p>' +
-          '<div class="scroll-panel">' + makeTable(['#', 'Player', 'Group', 'Start', 'Current', 'Gain', '%', 'TC', 'TG'], growthRows) + '</div>' +
+          '<p class="section-note">All active members in one scrollable table. Original players use prep-start power. Joined players use their first-seen power, so they are not counted from zero after join day.</p>' +
+          '<div class="scroll-panel">' + makeTable(['#', 'Player', 'Group', 'Status', 'Growth Base', 'Current', 'Gain', '%', 'TC', 'TG'], growthRows) + '</div>' +
         '</section>' +
 
         '<section class="two-col">' +
-          '<section class="panel"><h2>Roster Movement</h2><p class="section-note">Players joined or left compared to the starting snapshot.</p>' + movementTable + '</section>' +
+          '<section class="panel"><h2>Roster Movement</h2><p class="section-note">Permanent movement ledger. Joined power is recorded once at first seen; departed original players use their prep-start power for movement impact.</p>' + movementTable + '</section>' +
           '<section class="panel"><h2>Rank Group Table</h2>' + makeTable(['Group', 'Members', 'Total Power', 'Average Power'], groupRows) + '</section>' +
         '</section>' +
 
